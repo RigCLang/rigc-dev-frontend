@@ -1,0 +1,75 @@
+.stackView {
+	display: flex;
+}
+
+.stackRow {
+	display: flex;
+	margin-bottom: 20px;
+
+}
+
+.stackCell {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+
+	width: 30px;
+	height: 20px;
+
+	border-color: gray;
+	border-width: 1px;
+	border-top-style: solid;
+	border-bottom-style: solid;
+	border-left-style: solid;
+	font-size: 80%;
+
+	text-align: center;
+	background-color: rgb(59, 59, 59);
+
+
+	&:nth-child(4n):not(:first-child) {
+		margin-right: 5px;
+		border-right-style: solid;
+	}
+
+	&.highlighted {
+		background-color: rgba(0, 120, 124, 0.2);
+	}
+}
+
+.stackElem {
+	display: flex;
+	font-family: 'Jetbrains Mono', 'Consolas', 'Courier New', Courier, monospace;
+	
+	
+	&:hover {
+		background-color: rgba(black, 0.05);
+	}
+	
+	.typeName {
+		color: #4EC9B0;
+	}
+	
+	>div {
+		padding: 2px 5px;
+		width: 100%;
+	}
+
+	.stackValue {
+		background-color: rgba(white, 0.05);
+		border-bottom: 1px solid rgba(white, 0.1);
+	}
+
+	.stackFrame {
+		border-top: 2px solid black;
+		border-bottom: 2px solid black;
+	}
+}
+
+.variableName {
+
+	&.unknownVar {
+		color: gray;
+		font-style: italic;
+	}
+}

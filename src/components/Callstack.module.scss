@@ -1,0 +1,48 @@
+.callstack {
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.5);
+}
+
+.callstack table {
+	font-family: "Jetbrains Mono", "Consolas", monospace;
+	width: calc(min(800px, 80vw));
+	height: 100%;
+	scrollbar-gutter: stable both-edges;
+	
+	tbody {
+		display: block;
+		overflow-y: auto;
+		height: 100%;
+	}
+
+	th {
+		position: sticky;
+	}
+
+	tr {
+		display: table;
+		table-layout: fixed;
+	}
+
+	td {		
+		text-align: left;
+	}
+
+	tr:nth-child(even) {
+		background-color: rgba(white, 0.05);
+	}
+
+	.lineNumber {
+		width: 40px;
+	}
+	.fileName {
+		min-width: 50px;
+	}
+	.functionName {
+		min-width: 500px;
+	}
+	.index {
+		min-width: 30px;
+	}
+}

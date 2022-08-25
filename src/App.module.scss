@@ -1,21 +1,26 @@
-.App {
+:global(html, body) {
+  max-width: 100vw;
+  max-height: 100vh;
+}
+
+.app {
   text-align: center;
 }
 
-.App-logo {
+.appLogo {
   height: 40vmin;
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+  .appLogo {
+    animation: appLogoSpin infinite 20s linear;
   }
 }
 
-.App-header {
+.appHeader {
   background-color: #282c34;
-  min-height: 100vh;
+  min-height: 60vh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -24,15 +29,26 @@
   color: white;
 }
 
-.App-link {
+.appLink {
   color: #61dafb;
 }
 
-@keyframes App-logo-spin {
+@keyframes appLogoSpin {
   from {
     transform: rotate(0deg);
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+.splitterPanel {
+  padding: 10px;
+}
+
+.fullHeightPivot {
+  height: 100%;
+  >div[role="tabpanel"] {
+    height: calc(100% - 44px);
   }
 }
