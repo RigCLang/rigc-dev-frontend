@@ -49,6 +49,7 @@ type AppState = {
 	connected: ConnectionState;
 	useDarkTheme: boolean;
 	highlightedAddresses?: [number, number];
+  callStack: CallstackItem[];
 }
 
 const stackWithVerticalGap : IStackTokens = {
@@ -100,7 +101,6 @@ function ThemeSettings(props: ThemeSettingsProps) {
 export default class App extends React.Component<any, AppState> {
 
 	ws: WebSocket | null;
-	callStack: React.RefObject<Callstack>;
 	serverAddressRef: React.RefObject<ITextField>;
 	
 	logList: React.RefObject<List>;
@@ -110,22 +110,13 @@ export default class App extends React.Component<any, AppState> {
 		super(props);
 		
 		this.ws = null;
-		this.callStack			= React.createRef<Callstack>();
 		this.serverAddressRef	= React.createRef<ITextField>();
 		this.logList			= React.createRef<List>();
-
-		// setInterval(() => {
-		// 	this.callStack.current?.push({
-		// 			functionName: "functionName",
-		// 			file: "file",
-		// 			line: 1
-		// 	});
-		// }, 300);
-
 
 		this.reconnect = this.reconnect.bind(this);
 
 		this.state = {
+      callStack: [],
 			connected: ConnectionState.Disconnected,
 			useDarkTheme: true,
 		}
@@ -178,10 +169,14 @@ export default class App extends React.Component<any, AppState> {
 				const json = JSON.parse(event.data);
 				if (json.type === 'callstack') {
 					if (json.action === 'push') {
-						this.callStack.current?.push(json.data as CallstackItem);
+            this.setState(prev => {
+              return { ...prev, callStack: [ ...prev.callStack, json.data as CallstackItem ] }
+            })
 					}
 					else if (json.action === 'pop') {
-						this.callStack.current?.pop();
+            this.setState(prev => {
+              return { ...prev, callStack: prev.callStack.slice(0, -1) }
+            })
 					}
 				}
 				else if (json.type === 'log') {
