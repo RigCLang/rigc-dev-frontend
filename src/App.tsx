@@ -1,7 +1,7 @@
 import logo from './logo.svg';
 import styles from './App.module.scss';
 import React from 'react';
-import Callstack, { CallstackItem, CallstackWindow } from './components/Callstack';
+import { CallstackItem, CallstackWindow } from './components/Callstack';
 
 import Splitter, { SplitDirection } from '@devbookhq/splitter';
 
