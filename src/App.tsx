@@ -249,7 +249,7 @@ export default class App extends React.Component<any, AppState> {
 										'data-title': 'Callstack',
 									}}
 								>
-									<CallstackWindow className={styles.splitterPanel} />
+									<CallstackWindow callStack={this.state.callStack} className={styles.splitterPanel} />
 								</PivotItem>
 							</Pivot>
 							
