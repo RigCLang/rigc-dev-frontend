@@ -6,7 +6,7 @@ import StackData, { viewBytes } from "./Context";
 type MouseHoverCallback = (index: number, value: any) => void;
 
 interface StackValuesViewProps {
-	values?: any[];
+	values: any[];
 	onValueHovered?: MouseHoverCallback;
 	onValueUnhovered?: MouseHoverCallback;
 }
@@ -32,31 +32,15 @@ class WatchWindow extends React.Component<StackValuesViewProps, any>
 		super(props);
 		
 		this.handleMouseEnter = this.handleMouseEnter.bind(this);
-
-		this.state = {
-			values: props.values ?? [
-				{ kind: 'stackFrame', size: 0 },
-				{ kind: 'var', name: '', type: 'Char', size: 1, address: 0 },
-				{ kind: 'var', name: 'i', type: 'Int32', size: 4, address: 1 },
-				{ kind: 'stackFrame', size: 5 },
-				{ kind: 'var', name: 'c', type: 'Int32', size: 4, address: 5 },
-				{ kind: 'var', name: 'x', type: 'Int32', size: 4, address: 9 },
-				{ kind: 'var', name: 'z', type: 'Int32', size: 4, address: 13 },
-				{ kind: 'stackFrame', size: 17 },
-				{ kind: 'var', name: 'c', type: 'Int32', size: 4, address: 17 },
-				{ kind: 'var', name: 'x', type: 'Int32', size: 4, address: 21 },
-				{ kind: 'var', name: 'z', type: 'Int32', size: 4, address: 25 },
-			]
-		}
 	}
 
 	handleMouseEnter(index: number) {
 		if (this.props.onValueHovered)
-			this.props.onValueHovered(index, this.state.values[index]);
+			this.props.onValueHovered(index, this.props.values[index]);
 	}
 	handleMouseLeave(index: number) {
 		if (this.props.onValueUnhovered)
-			this.props.onValueUnhovered(index, this.state.values[index]);
+			this.props.onValueUnhovered(index, this.props.values[index]);
 	}
 
 	render() {
@@ -82,12 +66,12 @@ class WatchWindow extends React.Component<StackValuesViewProps, any>
 		return (
 			<>
 				Stack Values View
-				{this.state.values.map((value: any, index: number) => 
+				{this.props.values.map((value: any, index: number) => 
 					<div key={value.address || (-index)} className={styles.stackElem}
 							onMouseEnter={() => this.handleMouseEnter(index)}
 						>
 						{
-							value.kind === 'var' ?
+							value.kind === 'allocation' ?
 							<div className={styles.stackValue}>
 								<span className={styles.variableName + (!value.name ? ' ' + styles.unknownVar : '')}>
 									{value.name || '?'}

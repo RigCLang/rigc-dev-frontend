@@ -140,7 +140,11 @@ export default class App extends React.Component<any, AppState> {
     delete json.data.kind;
     if (json.action === 'pushFrame') {
       this.setState(prev => {
-        return { ...prev, stack: [ ...prev.stack, json.data as StackFrame ]}
+        const data = {
+          kind: 'frame',
+          ...(json.data as StackFrame)
+        }
+        return { ...prev, stack: [ ...prev.stack, data ]}
       })
     }
     else if (json.action === 'popFrame') {
@@ -153,7 +157,11 @@ export default class App extends React.Component<any, AppState> {
     }
     else if (json.action === 'allocate') {
       this.setState(prev => {
-        return { ...prev, stack: [ ...prev.stack, json.data as StackAllocation ]}
+        const data = {
+          kind: 'allocation',
+          ...(json.data as StackAllocation )
+        }
+        return { ...prev, stack: [ ...prev.stack, ]}
       })
     }
   }
