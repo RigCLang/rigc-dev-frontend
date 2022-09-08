@@ -22,6 +22,7 @@ import {
 
 import lightTheme	from './themes/light';
 import darkTheme	from './themes/dark';
+import { Stack, StackFrame, StackAllocation }	from './components/Stack/Watch';
 import StackWindow	from './components/Stack/Window';
 import LogWindow, { ILogEntry }	from './components/Log/Window';
 
@@ -50,6 +51,7 @@ type AppState = {
 	useDarkTheme: boolean;
 	highlightedAddresses?: [number, number];
   callStack: CallstackItem[];
+  stack: any[];
 }
 
 const stackWithVerticalGap : IStackTokens = {
@@ -116,6 +118,7 @@ export default class App extends React.Component<any, AppState> {
 		this.reconnect = this.reconnect.bind(this);
 
 		this.state = {
+      stack: [],
       callStack: [],
 			connected: ConnectionState.Disconnected,
 			useDarkTheme: true,
@@ -132,6 +135,28 @@ export default class App extends React.Component<any, AppState> {
 		this.logEntries.push(entry);
 		this.logList.current?.forceUpdate();
 	}
+
+  handleStackRequest(json: any) {
+    delete json.data.kind;
+    if (json.action === 'pushFrame') {
+      this.setState(prev => {
+        return { ...prev, stack: [ ...prev.stack, json.data as StackFrame ]}
+      })
+    }
+    else if (json.action === 'popFrame') {
+      this.setState(prev => {
+        const isStackFrame = (item: any) => item.action === 'pushFrame'
+        const lastStackFrameIndex = prev.stack.slice().reverse().findIndex(isStackFrame)
+
+        return { ...prev, stack: prev.stack.slice(0, lastStackFrameIndex)}
+      })
+    }
+    else if (json.action === 'allocate') {
+      this.setState(prev => {
+        return { ...prev, stack: [ ...prev.stack, json.data as StackAllocation ]}
+      })
+    }
+  }
 
 	reconnect() {
 
@@ -179,6 +204,9 @@ export default class App extends React.Component<any, AppState> {
             })
 					}
 				}
+        else if (json.type === 'stack') {
+          this.handleStackRequest(json);
+        }
 				else if (json.type === 'log') {
 					this.pushToLog(json.data as ILogEntry);
 
