@@ -4,9 +4,13 @@ import styles from '../../App.module.scss';
 import Splitter, { SplitDirection } from '@devbookhq/splitter';
 
 import StackMemoryView	from './MemoryView';
-import StackWatchWindow	from './Watch';
+import StackWatchWindow, { Stack }	from './Watch';
 
-export default function StackWindow() {
+interface StackWindowProps {
+  stackValues: Stack;
+}
+
+export default function StackWindow(props: StackWindowProps) {
 
 	const [highlightedAddresses, setHighlightedAddresses] = React.useState<[number, number]>();
 	const [sizes, setSizes] = React.useState<[number, number]>([70, 30]);
@@ -22,6 +26,7 @@ export default function StackWindow() {
 			</div>
 			<div className={styles.splitterPanel}>
 				<StackWatchWindow
+            values={props.stackValues}
 						onValueHovered={(_, addr) => setHighlightedAddresses([addr.address, addr.size])}
 						onValueUnhovered={() => setHighlightedAddresses(undefined)}
 					/>

@@ -254,7 +254,9 @@ export default class App extends React.Component<any, AppState> {
 										Learn React
 									</a>
 								</div>
-								<StackWindow />
+                <StackWindow 
+                  stackValues={this.state.stack} 
+                />
 							</Splitter>
 							<Pivot aria-label="Bottom panel" className={styles.fullHeightPivot}>
 								<PivotItem
