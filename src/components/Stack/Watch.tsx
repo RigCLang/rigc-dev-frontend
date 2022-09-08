@@ -11,6 +11,18 @@ interface StackValuesViewProps {
 	onValueUnhovered?: MouseHoverCallback;
 }
 
+export type Stack = any[];
+export type StackFrame = {
+  initialsize: number;
+}
+
+export type StackAllocation  = {
+  name: string;
+  type: string;
+  size: number;
+  address: number;
+}
+
 export default
 class WatchWindow extends React.Component<StackValuesViewProps, any>
 {
