@@ -26,6 +26,7 @@ import StackWindow	from './components/Stack/Window';
 import LogWindow, { ILogEntry }	from './components/Log/Window';
 
 import LogData, { logMockupData } from './components/Log/Context';
+import StackData from './components/Stack/Context';
 
 enum ConnectionState {
 	Disconnected,
@@ -50,6 +51,7 @@ type AppState = {
 	useDarkTheme: boolean;
 	highlightedAddresses?: [number, number];
   callStack: CallstackItem[];
+	memory: Int8Array;
 }
 
 const stackWithVerticalGap : IStackTokens = {
@@ -116,7 +118,14 @@ export default class App extends React.Component<any, AppState> {
 		this.reconnect = this.reconnect.bind(this);
 
 		this.state = {
-      callStack: [],
+			callStack: [],
+			memory: new Int8Array([
+				53, 0, 0, 0,
+				12, 237, 0, 255,
+				0, 11, 40, 0,
+				19, 0, 8, 0, 
+
+			]),
 			connected: ConnectionState.Disconnected,
 			useDarkTheme: true,
 		}
@@ -226,7 +235,9 @@ export default class App extends React.Component<any, AppState> {
 										Learn React
 									</a>
 								</div>
-								<StackWindow />
+								<StackData.Provider value={{ memory: this.state.memory }}>
+									<StackWindow />
+								</StackData.Provider>
 							</Splitter>
 							<Pivot aria-label="Bottom panel" className={styles.fullHeightPivot}>
 								<PivotItem
