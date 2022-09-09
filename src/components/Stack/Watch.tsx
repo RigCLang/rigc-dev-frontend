@@ -45,6 +45,9 @@ class WatchWindow extends React.Component<StackValuesViewProps, any>
 
 	render() {
 		const viewValue = (value: any) => {
+			if (this.context.memory.length <= value.address + value.size)
+				return "?";
+
 			if (value.size === 1)
 			{
 				const val = this.context.memory[value.address];
