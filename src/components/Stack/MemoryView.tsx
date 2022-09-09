@@ -60,7 +60,7 @@ class StackView extends React.Component<StackViewProps, any>
 			console.log("Highlighted elem key: ", highlightedElem.key, typeof +highlightedElem.key);
 			const len = this.props.highlightRange ? this.props.highlightRange[1] : 0;
 
-			if (len > 0) {
+			if (len > 0 && stackContent.length > +highlightedElem.key + len) {
 				const view = viewBytes(stackContent, +highlightedElem.key, len);
 				if (len === 1) {
 					console.log("Reading bytes: ", view.getInt8(0));
