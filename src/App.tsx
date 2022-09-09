@@ -137,7 +137,6 @@ export default class App extends React.Component<any, AppState> {
 	}
 
   handleStackRequest(json: any) {
-    delete json.data.kind;
     if (json.action === 'pushFrame') {
       this.setState(prev => {
         const data = {
@@ -159,9 +158,9 @@ export default class App extends React.Component<any, AppState> {
       this.setState(prev => {
         const data = {
           kind: 'allocation',
-          ...(json.data as StackAllocation )
+          ...(json.data as StackAllocation)
         }
-        return { ...prev, stack: [ ...prev.stack, ]}
+        return { ...prev, stack: [ ...prev.stack, data ]}
       })
     }
   }
