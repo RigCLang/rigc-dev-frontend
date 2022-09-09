@@ -13,7 +13,7 @@ interface StackValuesViewProps {
 
 export type Stack = any[];
 export type StackFrame = {
-  initialsize: number;
+  initialSize: number;
 }
 
 export type StackAllocation  = {
@@ -85,7 +85,7 @@ class WatchWindow extends React.Component<StackValuesViewProps, any>
 							</div>
 							:
 							<div className={styles.stackFrame}>
-								Stack Frame (initial size: {value.size})
+								Stack Frame (initial size: {value.initialSize})
 							</div>
 						}
 					</div>
