@@ -56,9 +56,9 @@ class WatchWindow extends React.Component<StackValuesViewProps, any>
 					return val;
 			}
 			else if (value.size === 2)
-				return viewBytes(this.context.memory, value.address, value.size).getInt16(0);
+				return;
 			else if (value.size === 4)
-				return viewBytes(this.context.memory, value.address, value.size).getInt32(0);
+				return;
 			else
 				return "";
 		}
