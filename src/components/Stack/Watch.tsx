@@ -70,9 +70,11 @@ class WatchWindow extends React.Component<StackValuesViewProps, any>
 			<>
 				Stack Values View
 				{this.props.values.map((value: any, index: number) => 
-					<div key={value.address || (-index)} className={styles.stackElem}
-							onMouseEnter={() => this.handleMouseEnter(index)}
-						>
+					<div 
+            key={value.address || (-index)} 
+            className={styles.stackElem}
+            onMouseEnter={() => this.handleMouseEnter(index)}
+          >
 						{
 							value.kind === 'allocation' ?
 							<div className={styles.stackValue}>
