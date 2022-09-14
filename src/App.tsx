@@ -148,6 +148,7 @@ export default class App extends React.Component<any, AppState> {
     }
     else if (json.action === 'popFrame') {
       this.setState(prev => {
+				// FIXME: seems like this doesnt work
         const isStackFrame = (item: any) => item.action === 'pushFrame'
         const lastStackFrameIndex = prev.stack.slice().reverse().findIndex(isStackFrame)
 
