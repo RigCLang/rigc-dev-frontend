@@ -47,15 +47,6 @@ function toString(state: ConnectionState) {
 }
 
 
-type AppState = {
-	connected: ConnectionState;
-	useDarkTheme: boolean;
-	highlightedAddresses?: [number, number];
-	callStack: CallstackItem[];
-	stack: any[];
-	memory: Int8Array;
-}
-
 const stackWithVerticalGap: IStackTokens = {
 	childrenGap: 10,
 	padding: "10px 0",
@@ -102,6 +93,21 @@ function ThemeSettings(props: ThemeSettingsProps) {
 	);
 }
 
+type AppState = {
+	connected: ConnectionState;
+	useDarkTheme: boolean;
+	highlightedAddresses?: [number, number];
+	callStack: CallstackItem[];
+	stack: any[];
+	memory: Int8Array;
+
+	splitPanes: {
+		rootHorizontal: [number, number],
+		mainVertical: [number, number],
+		mainTopHorizontal: [number, number],
+	}
+}
+
 export default class App extends React.Component<any, AppState> {
 
 	ws: WebSocket | null;
@@ -120,6 +126,11 @@ export default class App extends React.Component<any, AppState> {
 		this.reconnect = this.reconnect.bind(this);
 
 		this.state = {
+			splitPanes: {
+				rootHorizontal: [20, 80],
+				mainTopHorizontal: [70, 30],
+				mainVertical: [70, 30],
+			},
 			stack: [],
 			callStack: [],
 			memory: new Int8Array([
@@ -241,20 +252,36 @@ export default class App extends React.Component<any, AppState> {
 	}
 
 	render() {
+		type SplitPaneType = keyof AppState['splitPanes'];
+		const updatePanelSizes = (name: SplitPaneType, prevState: any, newSizes: number[]) =>
+			({
+				...prevState,
+				splitPanes: {
+					...prevState.splitPanes,
+					[name]: newSizes as [number, number]
+				},
+			});
+		const resizeFinishedHandler = (name: SplitPaneType) => {
+			return (_: any, newSizes: number[]) => this.setState(prevState => updatePanelSizes(name, prevState, newSizes));
+		}
+
 		return (
 			<ThemeProvider theme={this.state.useDarkTheme ? darkTheme : lightTheme}>
 				<div style={{ height: "100vh" }}>
 					<Splitter direction={SplitDirection.Horizontal}
-						initialSizes={[20, 80]}
+						initialSizes={this.state.splitPanes.rootHorizontal}
+						onResizeFinished={resizeFinishedHandler('rootHorizontal')}
 						minWidths={[150, 600]}
 					>
 						{this.leftPanel()}
 						<Splitter direction={SplitDirection.Vertical}
-							initialSizes={[70, 30]}
+							initialSizes={this.state.splitPanes.mainVertical}
+							onResizeFinished={resizeFinishedHandler('mainVertical')}
 							minHeights={[150, 150]}
 						>
 							<Splitter direction={SplitDirection.Horizontal}
-								initialSizes={[70, 30]}
+								initialSizes={this.state.splitPanes.mainTopHorizontal}
+								onResizeFinished={resizeFinishedHandler('mainTopHorizontal')}
 								minWidths={[150, 150]}
 							>
 								<div className={styles.splitterPanel}>
