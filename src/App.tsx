@@ -93,6 +93,12 @@ function ThemeSettings(props: ThemeSettingsProps) {
 	);
 }
 
+type AppPanes = {
+	rootHorizontal: [number, number];
+	mainVertical: [number, number];
+	mainTopHorizontal: [number, number];
+}
+
 type AppState = {
 	connected: ConnectionState;
 	useDarkTheme: boolean;
@@ -100,144 +106,185 @@ type AppState = {
 	callStack: CallstackItem[];
 	stack: any[];
 	memory: Int8Array;
-
-	splitPanes: {
-		rootHorizontal: [number, number],
-		mainVertical: [number, number],
-		mainTopHorizontal: [number, number],
-	}
 }
 
-export default class App extends React.Component<any, AppState> {
+export function LeftPanel({connected, reconnect, setUseDarkTheme, serverAddressRef}: any) {
+	return (
+		<Pivot aria-label="Basic Pivot Example">
+			<PivotItem
+				headerText="Main controls"
+				headerButtonProps={{
+					'data-order': 1,
+					'data-title': 'Main controls',
+				}}
+				itemIcon="FabricMDL2Icons"
+			>
+				<MainControls connected={connected} onReconnect={reconnect} addressRef={serverAddressRef} />
+			</PivotItem>
+			<PivotItem
+				headerText="Theme"
+				headerButtonProps={{
+					'data-order': 2,
+					'data-title': 'Theme',
+				}}
+			>
+				<ThemeSettings onToggledDarkTheme={(isDarkTheme) => setUseDarkTheme(isDarkTheme)} defaultTheme='dark' />
+			</PivotItem>
+		</Pivot>
+	);
+}
 
-	ws: WebSocket | null;
-	serverAddressRef: React.RefObject<ITextField>;
+export interface SizedSplitPaneProps {
+	children: React.ReactNode;
+	initialSize: [number, number];
+	minimalSize: [number, number];
+	direction: SplitDirection;
+}
 
-	logList: React.RefObject<List>;
-	logEntries: ILogEntry[] = [];
+export interface SplitPaneProps {
+	children: React.ReactNode;
+}
 
-	constructor(props: any) {
-		super(props);
+export function SizedSplitPane({children, initialSize, minimalSize, direction}: SizedSplitPaneProps) {
+	const [sizes, setSizes] = React.useState<[number, number]>(initialSize);
+	return (
+		<Splitter direction={direction}
+				initialSizes={sizes}
+				onResizeFinished={(_, s) => setSizes(s as [number, number])}
+				{...(direction === SplitDirection.Horizontal
+					?
+					{ minWidths: minimalSize }
+					:
+					{ minHeights: minimalSize }
+				)}
+			>
+			{children}
+		</Splitter>
+	);
+}
 
-		this.ws = null;
-		this.serverAddressRef = React.createRef<ITextField>();
-		this.logList = React.createRef<List>();
+export function RootSplit({children}: SplitPaneProps) {
+	return (
+		<SizedSplitPane
+				initialSize={[20, 80]}
+				minimalSize={[150, 600]}
+				direction={SplitDirection.Horizontal}>
+			{children}
+		</SizedSplitPane>
+	);
+}
 
-		this.reconnect = this.reconnect.bind(this);
+export function MainVerticalSplit({children}: SplitPaneProps) {
+	return (
+		<SizedSplitPane
+				initialSize={[70, 30]}
+				minimalSize={[150, 150]}
+				direction={SplitDirection.Vertical}>
+			{children}
+		</SizedSplitPane>
+	);
+}
 
-		this.state = {
-			splitPanes: {
-				rootHorizontal: [20, 80],
-				mainTopHorizontal: [70, 30],
-				mainVertical: [70, 30],
-			},
-			stack: [],
-			callStack: [],
-			memory: new Int8Array([
-				53, 0, 0, 0,
-				12, 237, 0, 255,
-				0, 11, 40, 0,
-				19, 0, 8, 0,
+export function MainTopHorizontalSplit({children}: SplitPaneProps) {
+	return (
+		<SizedSplitPane
+				initialSize={[70, 30]}
+				minimalSize={[150, 150]}
+				direction={SplitDirection.Horizontal}>
+			{children}
+		</SizedSplitPane>
+	);
+}
 
-			]),
-			connected: ConnectionState.Disconnected,
-			useDarkTheme: true,
-		}
+
+export default function App() {
+
+
+	let logEntries: ILogEntry[] = [];
+
+	let ws: WebSocket | null = null;
+	let serverAddressRef = React.createRef<ITextField>();
+	let logList = React.createRef<List>();
+
+	const [stack, setStack]			= React.useState<any[]>([]);
+	const [callStack, setCallStack]	= React.useState<CallstackItem[]>([]);
+	const [memory, setMemory]		= React.useState(new Int8Array([
+			53, 0, 0, 0,
+			12, 237, 0, 255,
+			0, 11, 40, 0,
+			19, 0, 8, 0,
+		]));
+	const [highlightedAddresses, setHighlightedAddresses] = React.useState<[number, number] | null>(null);
+
+	const [connected, setConnected] = React.useState(ConnectionState.Disconnected);
+	const [useDarkTheme, setUseDarkTheme] = React.useState(true);
+
+	const pushToLog = (entry: ILogEntry) => {
+		logEntries.push(entry);
+		logList.current?.forceUpdate();
 	}
 
-	setHoveredAddress(address?: [number, number]) {
-		this.setState({
-			highlightedAddresses: address
-		});
-	}
-
-	pushToLog(entry: ILogEntry) {
-		this.logEntries.push(entry);
-		this.logList.current?.forceUpdate();
-	}
-
-	handleStackRequest(json: any) {
+	const handleStackRequest = (json: any) => {
 		if (json.action === 'pushFrame') {
-			this.setState(prev => {
-				const data = {
-					kind: 'frame',
-					...(json.data as StackFrame)
-				}
-				return { ...prev, stack: [...prev.stack, data] }
-			})
+			const data = {
+				kind: 'frame',
+				...(json.data as StackFrame)
+			}
+			setStack([...stack, data]);
 		}
 		else if (json.action === 'popFrame') {
-			this.setState(prev => {
-				// FIXME: seems like this doesnt work
-				const isStackFrame = (item: any) => item.action === 'pushFrame';
-				const lastStackFrameIndex = prev.stack.slice().reverse().findIndex(isStackFrame)
 
-				return { ...prev, stack: prev.stack.slice(0, lastStackFrameIndex) }
-			})
+			// FIXME: seems like this doesnt work
+			const isStackFrame = (item: any) => item.action === 'pushFrame';
+			const lastStackFrameIndex = stack.slice().reverse().findIndex(isStackFrame);
+			setStack(stack.slice(0, lastStackFrameIndex));
 		}
 		else if (json.action === 'allocate') {
-			this.setState(prev => {
-				const data = {
-					kind: 'allocation',
-					...(json.data as StackAllocation)
-				}
-				return { ...prev, stack: [...prev.stack, data] }
-			})
+			const data = {
+				kind: 'allocation',
+				...(json.data as StackAllocation)
+			}
+			setStack([...stack, data]);
 		}
 	}
 
-	reconnect() {
+	const reconnect = () => {
 
-		if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-			this.ws.close();
+		if (ws && ws.readyState === WebSocket.OPEN) {
+			ws.close();
 		}
 
-		this.setState({
-			connected: ConnectionState.Connecting
-		});
+		setConnected(ConnectionState.Connecting);
 
 		const tryConnect = () => {
-			if (!this.serverAddressRef.current)
+			if (!serverAddressRef.current)
 				return false;
 
-			const addr = this.serverAddressRef.current.value || "";
+			const addr = serverAddressRef.current.value || "";
 			if (addr === "")
 				return false;
 
 
-			this.ws = new WebSocket(addr);
+			ws = new WebSocket(addr);
 
-			this.ws.onopen = () => {
-				this.setState({
-					connected: ConnectionState.Connected
-				});
-			}
+			ws.onopen = () => { setConnected(ConnectionState.Connected); }
+			ws.onclose = () => { setConnected(ConnectionState.Disconnected); }
 
-			this.ws.onclose = () => {
-				this.setState({
-					connected: ConnectionState.Disconnected
-				});
-			}
-			this.ws.onmessage = (event: MessageEvent) => {
+			ws.onmessage = (event: MessageEvent) => {
 				const json = JSON.parse(event.data);
 				if (json.type === 'callstack') {
 					if (json.action === 'push') {
-						this.setState(prev => {
-							return { ...prev, callStack: [...prev.callStack, json.data as CallstackItem] }
-						})
+						setCallStack([...callStack, json.data as CallstackItem]);
 					}
 					else if (json.action === 'pop') {
-						this.setState(prev => {
-							return { ...prev, callStack: prev.callStack.slice(0, -1) }
-						})
+						setCallStack(callStack.slice(0, -1));
 					}
 				}
 				else if (json.type === 'stack') {
-					this.handleStackRequest(json);
+					handleStackRequest(json);
 				}
 				else if (json.type === 'log') {
-					this.pushToLog(json.data as ILogEntry);
-
+					pushToLog(json.data as ILogEntry);
 				}
 			}
 			return true;
@@ -245,119 +292,62 @@ export default class App extends React.Component<any, AppState> {
 
 
 		if (!tryConnect()) {
-			this.setState({
-				connected: ConnectionState.Disconnected
-			});
+			setConnected(ConnectionState.Disconnected);
 		}
 	}
 
-	render() {
-		type SplitPaneType = keyof AppState['splitPanes'];
-		const updatePanelSizes = (name: SplitPaneType, prevState: any, newSizes: number[]) =>
-			({
-				...prevState,
-				splitPanes: {
-					...prevState.splitPanes,
-					[name]: newSizes as [number, number]
-				},
-			});
-		const resizeFinishedHandler = (name: SplitPaneType) => {
-			return (_: any, newSizes: number[]) => this.setState(prevState => updatePanelSizes(name, prevState, newSizes));
-		}
+	return (
+		<ThemeProvider theme={useDarkTheme ? darkTheme : lightTheme}>
+			<div style={{ height: "100vh" }}>
+				<RootSplit>
+					<LeftPanel connected={connected} reconnect={reconnect} setUseDarkTheme={setUseDarkTheme} serverAddressRef={serverAddressRef}/>
+					<MainVerticalSplit>
+						<MainTopHorizontalSplit>	
+							<div className={styles.splitterPanel}>
+								<img src={logo} className={styles.appLogo} alt="logo" />
+								<p>
+									Edit <code>src/App.js</code> and save to reload.
+								</p>
+								<a
+									className={styles.appLink}
+									href="https://reactjs.org"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									Learn React
+								</a>
+							</div>
+							<StackData.Provider value={{ memory: memory }}>
+								<StackWindow stackValues={stack} />
+							</StackData.Provider>
+						</MainTopHorizontalSplit>
+						<Pivot aria-label="Bottom panel" className={styles.fullHeightPivot}>
+							<PivotItem
+								headerText="Output log"
+								headerButtonProps={{
+									'data-order': 1,
+									'data-title': 'Output log',
+								}}
 
-		return (
-			<ThemeProvider theme={this.state.useDarkTheme ? darkTheme : lightTheme}>
-				<div style={{ height: "100vh" }}>
-					<Splitter direction={SplitDirection.Horizontal}
-						initialSizes={this.state.splitPanes.rootHorizontal}
-						onResizeFinished={resizeFinishedHandler('rootHorizontal')}
-						minWidths={[150, 600]}
-					>
-						{this.leftPanel()}
-						<Splitter direction={SplitDirection.Vertical}
-							initialSizes={this.state.splitPanes.mainVertical}
-							onResizeFinished={resizeFinishedHandler('mainVertical')}
-							minHeights={[150, 150]}
-						>
-							<Splitter direction={SplitDirection.Horizontal}
-								initialSizes={this.state.splitPanes.mainTopHorizontal}
-								onResizeFinished={resizeFinishedHandler('mainTopHorizontal')}
-								minWidths={[150, 150]}
+								style={{ height: '100%' }}
 							>
-								<div className={styles.splitterPanel}>
-									<img src={logo} className={styles.appLogo} alt="logo" />
-									<p>
-										Edit <code>src/App.js</code> and save to reload.
-									</p>
-									<a
-										className={styles.appLink}
-										href="https://reactjs.org"
-										target="_blank"
-										rel="noopener noreferrer"
-									>
-										Learn React
-									</a>
-								</div>
-								<StackData.Provider value={{ memory: this.state.memory }}>
-									<StackWindow stackValues={this.state.stack} />
-								</StackData.Provider>
-							</Splitter>
-							<Pivot aria-label="Bottom panel" className={styles.fullHeightPivot}>
-								<PivotItem
-									headerText="Output log"
-									headerButtonProps={{
-										'data-order': 1,
-										'data-title': 'Output log',
-									}}
-
-									style={{ height: '100%' }}
-								>
-									<LogData.Provider value={{ entries: this.logEntries }}>
-										<LogWindow ref={this.logList} className={styles.splitterPanel} />
-									</LogData.Provider>
-								</PivotItem>
-								<PivotItem
-									headerText="Callstack"
-									headerButtonProps={{
-										'data-order': 2,
-										'data-title': 'Callstack',
-									}}
-								>
-									<CallstackWindow callStack={this.state.callStack} className={styles.splitterPanel} />
-								</PivotItem>
-							</Pivot>
-
-							{/* <Callstack ref={this.callStack}/> */}
-						</Splitter>
-					</Splitter>
-				</div>
-			</ThemeProvider>
-		);
-	}
-
-	private leftPanel() {
-		return (
-			<Pivot aria-label="Basic Pivot Example">
-				<PivotItem
-					headerText="Main controls"
-					headerButtonProps={{
-						'data-order': 1,
-						'data-title': 'Main controls',
-					}}
-					itemIcon="FabricMDL2Icons"
-				>
-					<MainControls connected={this.state.connected} onReconnect={() => this.reconnect()} addressRef={this.serverAddressRef} />
-				</PivotItem>
-				<PivotItem
-					headerText="Theme"
-					headerButtonProps={{
-						'data-order': 2,
-						'data-title': 'Theme',
-					}}
-				>
-					<ThemeSettings onToggledDarkTheme={(isDarkTheme) => this.setState({ useDarkTheme: isDarkTheme })} defaultTheme='dark' />
-				</PivotItem>
-			</Pivot>
-		);
-	}
+								<LogData.Provider value={{ entries: logEntries }}>
+									<LogWindow ref={logList} className={styles.splitterPanel} />
+								</LogData.Provider>
+							</PivotItem>
+							<PivotItem
+								headerText="Callstack"
+								headerButtonProps={{
+									'data-order': 2,
+									'data-title': 'Callstack',
+								}}
+							>
+								<CallstackWindow callStack={callStack} className={styles.splitterPanel} />
+							</PivotItem>
+						</Pivot>
+					</MainVerticalSplit>
+				</RootSplit>
+			</div>
+		</ThemeProvider>
+	);
 }
