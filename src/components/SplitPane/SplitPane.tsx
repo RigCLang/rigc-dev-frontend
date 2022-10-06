@@ -44,7 +44,7 @@ export default function SplitPane({
 		}
 	}, [cookieName]);
 
-	const onResize = (sizes: [number, number]) => {
+	const handleResize = (sizes: [number, number]) => {
 		setSizes(sizes);
 		if (cookieName) {
 			setCookie(cookieName, JSON.stringify(sizes), 365);
@@ -54,7 +54,7 @@ export default function SplitPane({
 	return (
 		<Splitter direction={translateDirection(direction)}
 				initialSizes={sizes}
-				onResizeFinished={(_, s) => onResize(s as [number, number])}
+				onResizeFinished={(_, s) => handleResize(s as [number, number])}
 				{...(direction === "x"
 					?
 					{ minWidths: minimalSize }
