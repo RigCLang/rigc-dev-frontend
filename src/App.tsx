@@ -1,9 +1,7 @@
+import React from 'react';
 import logo from './logo.svg';
 import styles from './App.module.scss';
-import React from 'react';
 import { CallstackItem, CallstackWindow } from './components/Callstack';
-
-import Splitter, { SplitDirection } from '@devbookhq/splitter';
 
 import {
 	PrimaryButton,
@@ -28,6 +26,7 @@ import LogWindow, { ILogEntry } from './components/Log/Window';
 
 import LogData, { logMockupData } from './components/Log/Context';
 import StackData from './components/Stack/Context';
+import { SplitPane } from './components';
 
 enum ConnectionState {
 	Disconnected,
@@ -134,65 +133,47 @@ export function LeftPanel({connected, reconnect, setUseDarkTheme, serverAddressR
 	);
 }
 
-export interface SizedSplitPaneProps {
-	children: React.ReactNode;
-	initialSize: [number, number];
-	minimalSize: [number, number];
-	direction: SplitDirection;
-}
-
 export interface SplitPaneProps {
 	children: React.ReactNode;
 }
 
-export function SizedSplitPane({children, initialSize, minimalSize, direction}: SizedSplitPaneProps) {
-	const [sizes, setSizes] = React.useState<[number, number]>(initialSize);
-	return (
-		<Splitter direction={direction}
-				initialSizes={sizes}
-				onResizeFinished={(_, s) => setSizes(s as [number, number])}
-				{...(direction === SplitDirection.Horizontal
-					?
-					{ minWidths: minimalSize }
-					:
-					{ minHeights: minimalSize }
-				)}
-			>
-			{children}
-		</Splitter>
-	);
-}
 
 export function RootSplit({children}: SplitPaneProps) {
 	return (
-		<SizedSplitPane
+		<SplitPane
 				initialSize={[20, 80]}
 				minimalSize={[150, 600]}
-				direction={SplitDirection.Horizontal}>
+				direction="x"
+				cookieName="SplitPaneSize_RootHorizontal"
+			>
 			{children}
-		</SizedSplitPane>
+		</SplitPane>
 	);
 }
 
 export function MainVerticalSplit({children}: SplitPaneProps) {
 	return (
-		<SizedSplitPane
+		<SplitPane
 				initialSize={[70, 30]}
 				minimalSize={[150, 150]}
-				direction={SplitDirection.Vertical}>
+				direction="y"
+				cookieName="SplitPaneSize_MainVertical"
+			>
 			{children}
-		</SizedSplitPane>
+		</SplitPane>
 	);
 }
 
 export function MainTopHorizontalSplit({children}: SplitPaneProps) {
 	return (
-		<SizedSplitPane
+		<SplitPane
 				initialSize={[70, 30]}
 				minimalSize={[150, 150]}
-				direction={SplitDirection.Horizontal}>
+				direction="x"
+				cookieName="SplitPaneSize_MainTopHorizontal"
+			>
 			{children}
-		</SizedSplitPane>
+		</SplitPane>
 	);
 }
 
