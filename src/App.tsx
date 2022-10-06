@@ -27,111 +27,9 @@ import LogWindow, { ILogEntry } from './components/Log/Window';
 import LogData, { logMockupData } from './components/Log/Context';
 import StackData from './components/Stack/Context';
 import { SplitPane } from './components';
+import { ConnectionState } from './Connection';
+import { SettingsPanel } from './components/SettingsPanel/SettingsPanel';
 
-enum ConnectionState {
-	Disconnected,
-	Connecting,
-	Connected,
-}
-
-function toString(state: ConnectionState) {
-	switch (state) {
-		case ConnectionState.Disconnected:
-			return 'Disconnected';
-		case ConnectionState.Connecting:
-			return 'Connecting';
-		case ConnectionState.Connected:
-			return 'Connected';
-	}
-}
-
-
-const stackWithVerticalGap: IStackTokens = {
-	childrenGap: 10,
-	padding: "10px 0",
-};
-
-
-const defaultAddress = 'ws://localhost:9002';
-
-class MainControlsProps {
-	connected: ConnectionState = ConnectionState.Disconnected;
-	addressRef?: IRefObject<ITextField>;
-	onReconnect: () => void = () => { };
-}
-
-function MainControls(props: MainControlsProps) {
-	return (
-		<Stacker className={styles.splitterPanel}>
-			<p>Connection status: <span>{toString(props.connected)}</span></p>
-			<TextField componentRef={props.addressRef} label="VM Address" required defaultValue={defaultAddress} placeholder="example: ws://localhost:9002" />
-			<Stacker.Item align="start" tokens={stackWithVerticalGap}>
-				<PrimaryButton text="Reconnect" onClick={props.onReconnect} />
-			</Stacker.Item>
-		</Stacker>
-	);
-}
-
-class ThemeSettingsProps {
-	onToggledDarkTheme: (isDarkTheme: boolean) => void = () => { };
-	defaultTheme: 'dark' | 'light' = 'dark';
-};
-
-function ThemeSettings(props: ThemeSettingsProps) {
-	const [useDarkTheme, setDarkTheme] = React.useState(props.defaultTheme === 'dark');
-
-	return (
-		<Stacker className={styles.splitterPanel}>
-			<Toggle label="Use dark mode" defaultChecked onText="On" offText="Off"
-				onChange={(e) => {
-					props.onToggledDarkTheme?.(!useDarkTheme);
-					setDarkTheme(!useDarkTheme);
-				}}
-			/>
-		</Stacker>
-	);
-}
-
-type AppPanes = {
-	rootHorizontal: [number, number];
-	mainVertical: [number, number];
-	mainTopHorizontal: [number, number];
-}
-
-type AppState = {
-	connected: ConnectionState;
-	useDarkTheme: boolean;
-	highlightedAddresses?: [number, number];
-	callStack: CallstackItem[];
-	stack: any[];
-	memory: Int8Array;
-}
-
-export function LeftPanel({connected, reconnect, setUseDarkTheme, serverAddressRef}: any) {
-	return (
-		<Pivot aria-label="Basic Pivot Example">
-			<PivotItem
-				headerText="Main controls"
-				headerButtonProps={{
-					'data-order': 1,
-					'data-title': 'Main controls',
-				}}
-				itemIcon="FabricMDL2Icons"
-			>
-				<MainControls connected={connected} onReconnect={reconnect} addressRef={serverAddressRef} />
-			</PivotItem>
-			<PivotItem
-				headerText="Theme"
-				headerButtonProps={{
-					'data-order': 2,
-					'data-title': 'Theme',
-				}}
-			>
-				<ThemeSettings onToggledDarkTheme={(isDarkTheme) => setUseDarkTheme(isDarkTheme)} defaultTheme='dark' />
-			</PivotItem>
-		</Pivot>
-	);
-}
 
 export interface SplitPaneProps {
 	children: React.ReactNode;
@@ -183,12 +81,13 @@ export default function App() {
 
 	let logEntries: ILogEntry[] = [];
 
-	let ws: WebSocket | null = null;
+	const [ws, setWebSocket] = React.useState<WebSocket | null>(null);
 	let serverAddressRef = React.createRef<ITextField>();
 	let logList = React.createRef<List>();
 
 	const [stack, setStack]			= React.useState<any[]>([]);
 	const [callStack, setCallStack]	= React.useState<CallstackItem[]>([]);
+	const [autoReconnect, setAutoReconnect]	= React.useState(true);
 	const [memory, setMemory]		= React.useState(new Int8Array([
 			53, 0, 0, 0,
 			12, 237, 0, 255,
@@ -206,10 +105,10 @@ export default function App() {
 		}
 	}, [connected]);
 
-	const pushToLog = (entry: ILogEntry) => {
+	const pushToLog = React.useCallback((entry: ILogEntry) => {
 		logEntries.push(entry);
 		logList.current?.forceUpdate();
-	}
+	}, [logEntries, logList]);
 
 	const handleStackRequest = (json: any) => {
 		if (json.action === 'pushFrame') {
@@ -237,10 +136,11 @@ export default function App() {
 		}
 	}
 
-	const reconnect = () => {
+	const reconnect = React.useCallback(() => {
 
-		if (ws && ws.readyState === WebSocket.OPEN) {
+		if (ws) {
 			ws.close();
+			setWebSocket(null);
 		}
 
 		setConnected(ConnectionState.Connecting);
@@ -253,8 +153,7 @@ export default function App() {
 			if (addr === "")
 				return false;
 
-
-			ws = new WebSocket(addr);
+			let ws = new WebSocket(addr);
 
 			ws.onopen = () => { setConnected(ConnectionState.Connected); }
 			ws.onclose = () => { setConnected(ConnectionState.Disconnected); }
@@ -276,6 +175,8 @@ export default function App() {
 					pushToLog(json.data as ILogEntry);
 				}
 			}
+			setWebSocket(ws);
+
 			return true;
 		};
 
@@ -283,13 +184,25 @@ export default function App() {
 		if (!tryConnect()) {
 			setConnected(ConnectionState.Disconnected);
 		}
-	}
+	}, [callStack, pushToLog, serverAddressRef, ws]);
+
+	React.useEffect(() => {
+		if (autoReconnect && connected === ConnectionState.Disconnected) {
+			reconnect();
+		}
+	}, [reconnect, connected, autoReconnect, ws]);
 
 	return (
 		<ThemeProvider theme={useDarkTheme ? darkTheme : lightTheme}>
 			<div style={{ height: "100vh" }}>
 				<RootSplit>
-					<LeftPanel connected={connected} reconnect={reconnect} setUseDarkTheme={setUseDarkTheme} serverAddressRef={serverAddressRef}/>
+					<SettingsPanel
+						connected={connected}
+						reconnect={reconnect}
+						setUseDarkTheme={setUseDarkTheme}
+						serverAddressRef={serverAddressRef}
+						onAutoReconnectChanged={(ar: boolean) => setAutoReconnect(ar)}
+					/>
 					<MainVerticalSplit>
 						<MainTopHorizontalSplit>	
 							<div className={styles.splitterPanel}>
