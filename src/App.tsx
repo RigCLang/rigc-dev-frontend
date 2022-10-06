@@ -219,6 +219,12 @@ export default function App() {
 	const [connected, setConnected] = React.useState(ConnectionState.Disconnected);
 	const [useDarkTheme, setUseDarkTheme] = React.useState(true);
 
+	React.useEffect(() => {
+		if (connected === ConnectionState.Connected) {
+			setStack([]);
+		}
+	}, [connected]);
+
 	const pushToLog = (entry: ILogEntry) => {
 		logEntries.push(entry);
 		logList.current?.forceUpdate();
@@ -230,21 +236,23 @@ export default function App() {
 				kind: 'frame',
 				...(json.data as StackFrame)
 			}
-			setStack([...stack, data]);
+			setStack(s => [...s, data]);
 		}
 		else if (json.action === 'popFrame') {
 
 			// FIXME: seems like this doesnt work
 			const isStackFrame = (item: any) => item.action === 'pushFrame';
-			const lastStackFrameIndex = stack.slice().reverse().findIndex(isStackFrame);
-			setStack(stack.slice(0, lastStackFrameIndex));
+			setStack(s => {
+				const lastStackFrameIndex = s.slice().reverse().findIndex(isStackFrame);
+				return s.slice(0, lastStackFrameIndex)
+			});
 		}
 		else if (json.action === 'allocate') {
 			const data = {
 				kind: 'allocation',
 				...(json.data as StackAllocation)
 			}
-			setStack([...stack, data]);
+			setStack(s => [...s, data]);
 		}
 	}
 
