@@ -1,9 +1,7 @@
+import React from 'react';
 import logo from './logo.svg';
 import styles from './App.module.scss';
-import React from 'react';
 import { CallstackItem, CallstackWindow } from './components/Callstack';
-
-import Splitter, { SplitDirection } from '@devbookhq/splitter';
 
 import {
 	PrimaryButton,
@@ -20,308 +18,238 @@ import {
 	IRefObject,
 } from '@fluentui/react';
 
-import lightTheme	from './themes/light';
-import darkTheme	from './themes/dark';
-import { Stack, StackFrame, StackAllocation }	from './components/Stack/Watch';
-import StackWindow	from './components/Stack/Window';
-import LogWindow, { ILogEntry }	from './components/Log/Window';
+import lightTheme from './themes/light';
+import darkTheme from './themes/dark';
+import { Stack, StackFrame, StackAllocation } from './components/Stack/Watch';
+import StackWindow from './components/Stack/Window';
+import LogWindow, { ILogEntry } from './components/Log/Window';
 
 import LogData, { logMockupData } from './components/Log/Context';
+import StackData from './components/Stack/Context';
+import { SplitPane } from './components';
+import { ConnectionState } from './Connection';
+import { SettingsPanel } from './components/SettingsPanel/SettingsPanel';
 
-enum ConnectionState {
-	Disconnected,
-	Connecting,
-	Connected,
-}
 
-function toString(state: ConnectionState) {
-	switch (state) {
-		case ConnectionState.Disconnected:
-			return 'Disconnected';
-		case ConnectionState.Connecting:
-			return 'Connecting';
-		case ConnectionState.Connected:
-			return 'Connected';
-	}
+export interface SplitPaneProps {
+	children: React.ReactNode;
 }
 
 
-type AppState = {
-	connected: ConnectionState;
-	useDarkTheme: boolean;
-	highlightedAddresses?: [number, number];
-  callStack: CallstackItem[];
-  stack: any[];
-}
-
-const stackWithVerticalGap : IStackTokens = {
-	childrenGap: 10,
-	padding: "10px 0",
-};
-
-
-const defaultAddress = 'ws://localhost:9002';
-
-class MainControlsProps {
-	connected: ConnectionState = ConnectionState.Disconnected;
-	addressRef?: IRefObject<ITextField>;
-	onReconnect: () => void = () => {};
-}
-
-function MainControls(props: MainControlsProps) {
-		return (
-			<Stacker className={styles.splitterPanel}>
-				<p>Connection status: <span>{toString(props.connected)}</span></p>
-				<TextField componentRef={props.addressRef} label="VM Address" required defaultValue={defaultAddress} placeholder="example: ws://localhost:9002" />
-				<Stacker.Item align="start" tokens={stackWithVerticalGap}>
-					<PrimaryButton text="Reconnect" onClick={props.onReconnect} />
-				</Stacker.Item>
-			</Stacker>
-		);
-}
-
-class ThemeSettingsProps {
-	onToggledDarkTheme: (isDarkTheme: boolean) => void = () => {};
-	defaultTheme: 'dark' | 'light' = 'dark';
-};
-
-function ThemeSettings(props: ThemeSettingsProps) {
-	const [useDarkTheme, setDarkTheme] = React.useState(props.defaultTheme === 'dark');
-
+export function RootSplit({children}: SplitPaneProps) {
 	return (
-		<Stacker className={styles.splitterPanel}>
-			<Toggle label="Use dark mode" defaultChecked onText="On" offText="Off"
-					onChange={(e) => {
-						props.onToggledDarkTheme?.(!useDarkTheme);
-						setDarkTheme( !useDarkTheme );
-					} } 
-				/>
-		</Stacker>
+		<SplitPane
+				initialSize={[20, 80]}
+				minimalSize={[150, 600]}
+				direction="x"
+				cookieName="SplitPaneSize_RootHorizontal"
+			>
+			{children}
+		</SplitPane>
 	);
 }
 
-export default class App extends React.Component<any, AppState> {
+export function MainVerticalSplit({children}: SplitPaneProps) {
+	return (
+		<SplitPane
+				initialSize={[70, 30]}
+				minimalSize={[150, 150]}
+				direction="y"
+				cookieName="SplitPaneSize_MainVertical"
+			>
+			{children}
+		</SplitPane>
+	);
+}
 
-	ws: WebSocket | null;
-	serverAddressRef: React.RefObject<ITextField>;
-	
-	logList: React.RefObject<List>;
-	logEntries: ILogEntry[] = [];
+export function MainTopHorizontalSplit({children}: SplitPaneProps) {
+	return (
+		<SplitPane
+				initialSize={[70, 30]}
+				minimalSize={[150, 150]}
+				direction="x"
+				cookieName="SplitPaneSize_MainTopHorizontal"
+			>
+			{children}
+		</SplitPane>
+	);
+}
 
-	constructor(props: any) {
-		super(props);
-		
-		this.ws = null;
-		this.serverAddressRef	= React.createRef<ITextField>();
-		this.logList			= React.createRef<List>();
 
-		this.reconnect = this.reconnect.bind(this);
+export default function App() {
 
-		this.state = {
-      stack: [],
-      callStack: [],
-			connected: ConnectionState.Disconnected,
-			useDarkTheme: true,
+
+	let logEntries: ILogEntry[] = [];
+
+	const [ws, setWebSocket] = React.useState<WebSocket | null>(null);
+	let serverAddressRef = React.createRef<ITextField>();
+	let logList = React.createRef<List>();
+
+	const [stack, setStack]			= React.useState<any[]>([]);
+	const [callStack, setCallStack]	= React.useState<CallstackItem[]>([]);
+	const [autoReconnect, setAutoReconnect]	= React.useState(true);
+	const [memory, setMemory]		= React.useState(new Int8Array([
+			53, 0, 0, 0,
+			12, 237, 0, 255,
+			0, 11, 40, 0,
+			19, 0, 8, 0,
+		]));
+	const [highlightedAddresses, setHighlightedAddresses] = React.useState<[number, number] | null>(null);
+
+	const [connected, setConnected] = React.useState(ConnectionState.Disconnected);
+	const [useDarkTheme, setUseDarkTheme] = React.useState(true);
+
+	React.useEffect(() => {
+		if (connected === ConnectionState.Connected) {
+			setStack([]);
+		}
+	}, [connected]);
+
+	const pushToLog = React.useCallback((entry: ILogEntry) => {
+		logEntries.push(entry);
+		logList.current?.forceUpdate();
+	}, [logEntries, logList]);
+
+	const handleStackRequest = (json: any) => {
+		if (json.action === 'pushFrame') {
+			const data = {
+				kind: 'frame',
+				...(json.data as StackFrame)
+			}
+			setStack(s => [...s, data]);
+		}
+		else if (json.action === 'popFrame') {
+
+			// FIXME: seems like this doesnt work
+			const isStackFrame = (item: any) => item.action === 'pushFrame';
+			setStack(s => {
+				const lastStackFrameIndex = s.slice().reverse().findIndex(isStackFrame);
+				return s.slice(0, lastStackFrameIndex)
+			});
+		}
+		else if (json.action === 'allocate') {
+			const data = {
+				kind: 'allocation',
+				...(json.data as StackAllocation)
+			}
+			setStack(s => [...s, data]);
 		}
 	}
 
-	setHoveredAddress(address?: [number, number]) {
-		this.setState({
-			highlightedAddresses: address
-		});
-	}
+	const reconnect = React.useCallback(() => {
 
-	pushToLog(entry: ILogEntry) {
-		this.logEntries.push(entry);
-		this.logList.current?.forceUpdate();
-	}
-
-  handleStackRequest(json: any) {
-    if (json.action === 'pushFrame') {
-      this.setState(prev => {
-        const data = {
-          kind: 'frame',
-          ...(json.data as StackFrame)
-        }
-        return { ...prev, stack: [ ...prev.stack, data ]}
-      })
-    }
-    else if (json.action === 'popFrame') {
-      this.setState(prev => {
-				// FIXME: seems like this doesnt work
-        const isStackFrame = (item: any) => item.action === 'pushFrame'
-        const lastStackFrameIndex = prev.stack.slice().reverse().findIndex(isStackFrame)
-
-        return { ...prev, stack: prev.stack.slice(0, lastStackFrameIndex)}
-      })
-    }
-    else if (json.action === 'allocate') {
-      this.setState(prev => {
-        const data = {
-          kind: 'allocation',
-          ...(json.data as StackAllocation)
-        }
-        return { ...prev, stack: [ ...prev.stack, data ]}
-      })
-    }
-  }
-
-	reconnect() {
-
-		if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-			this.ws.close();
+		if (ws) {
+			ws.close();
+			setWebSocket(null);
 		}
 
-		this.setState({
-			connected: ConnectionState.Connecting
-		});
+		setConnected(ConnectionState.Connecting);
 
 		const tryConnect = () => {
-			if (!this.serverAddressRef.current)
+			if (!serverAddressRef.current)
 				return false;
-	
-			const addr = this.serverAddressRef.current.value || "";
+
+			const addr = serverAddressRef.current.value || "";
 			if (addr === "")
 				return false;
-				
-		
-			this.ws = new WebSocket(addr);
-			
-			this.ws.onopen = () => {
-				this.setState({
-					connected: ConnectionState.Connected
-				});
-			}
 
-			this.ws.onclose = () => {
-				this.setState({
-					connected: ConnectionState.Disconnected
-				});
-			}
-			this.ws.onmessage = (event: MessageEvent) => {
+			let ws = new WebSocket(addr);
+
+			ws.onopen = () => { setConnected(ConnectionState.Connected); }
+			ws.onclose = () => { setConnected(ConnectionState.Disconnected); }
+
+			ws.onmessage = (event: MessageEvent) => {
 				const json = JSON.parse(event.data);
 				if (json.type === 'callstack') {
 					if (json.action === 'push') {
-            this.setState(prev => {
-              return { ...prev, callStack: [ ...prev.callStack, json.data as CallstackItem ] }
-            })
+						setCallStack([...callStack, json.data as CallstackItem]);
 					}
 					else if (json.action === 'pop') {
-            this.setState(prev => {
-              return { ...prev, callStack: prev.callStack.slice(0, -1) }
-            })
+						setCallStack(callStack.slice(0, -1));
 					}
 				}
-        else if (json.type === 'stack') {
-          this.handleStackRequest(json);
-        }
+				else if (json.type === 'stack') {
+					handleStackRequest(json);
+				}
 				else if (json.type === 'log') {
-					this.pushToLog(json.data as ILogEntry);
-
+					pushToLog(json.data as ILogEntry);
 				}
 			}
+			setWebSocket(ws);
+
 			return true;
 		};
 
 
 		if (!tryConnect()) {
-			this.setState({
-				connected: ConnectionState.Disconnected
-			});
+			setConnected(ConnectionState.Disconnected);
 		}
-	}
+	}, [callStack, pushToLog, serverAddressRef, ws]);
 
-	render() {
-		return (
-			<ThemeProvider theme={this.state.useDarkTheme ? darkTheme : lightTheme}>
-				<div style={{height: "100vh"}}>
-					<Splitter direction={SplitDirection.Horizontal}
-							initialSizes={[20, 80]}
-							minWidths={[150, 600]}
-						>
-						{this.leftPanel()}
-						<Splitter direction={SplitDirection.Vertical}
-								initialSizes={[70, 30]}
-								minHeights={[150, 150]}
+	React.useEffect(() => {
+		if (autoReconnect && connected === ConnectionState.Disconnected) {
+			reconnect();
+		}
+	}, [reconnect, connected, autoReconnect, ws]);
+
+	return (
+		<ThemeProvider theme={useDarkTheme ? darkTheme : lightTheme}>
+			<div style={{ height: "100vh" }}>
+				<RootSplit>
+					<SettingsPanel
+						connected={connected}
+						reconnect={reconnect}
+						setUseDarkTheme={setUseDarkTheme}
+						serverAddressRef={serverAddressRef}
+						onAutoReconnectChanged={(ar: boolean) => setAutoReconnect(ar)}
+					/>
+					<MainVerticalSplit>
+						<MainTopHorizontalSplit>	
+							<div className={styles.splitterPanel}>
+								<img src={logo} className={styles.appLogo} alt="logo" />
+								<p>
+									Edit <code>src/App.js</code> and save to reload.
+								</p>
+								<a
+									className={styles.appLink}
+									href="https://reactjs.org"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									Learn React
+								</a>
+							</div>
+							<StackData.Provider value={{ memory: memory }}>
+								<StackWindow stackValues={stack} />
+							</StackData.Provider>
+						</MainTopHorizontalSplit>
+						<Pivot aria-label="Bottom panel" className={styles.fullHeightPivot}>
+							<PivotItem
+								headerText="Output log"
+								headerButtonProps={{
+									'data-order': 1,
+									'data-title': 'Output log',
+								}}
+
+								style={{ height: '100%' }}
 							>
-							<Splitter direction={SplitDirection.Horizontal}
-									initialSizes={[70, 30]}
-									minWidths={[150, 150]}
-								>
-								<div className={styles.splitterPanel}>
-									<img src={logo} className={styles.appLogo} alt="logo" />
-									<p>
-										Edit <code>src/App.js</code> and save to reload.
-									</p>
-									<a
-										className={styles.appLink}
-										href="https://reactjs.org"
-										target="_blank"
-										rel="noopener noreferrer"
-									>
-										Learn React
-									</a>
-								</div>
-                <StackWindow 
-                  stackValues={this.state.stack} 
-                />
-							</Splitter>
-							<Pivot aria-label="Bottom panel" className={styles.fullHeightPivot}>
-								<PivotItem
-									headerText="Output log"
-									headerButtonProps={{
-										'data-order': 1,
-										'data-title': 'Output log',
-									}}
-									
-									style={{height: '100%'}}
-								>
-									<LogData.Provider value={ { entries: this.logEntries } }>
-										<LogWindow ref={this.logList} className={styles.splitterPanel}/>
-									</LogData.Provider>
-								</PivotItem>
-								<PivotItem
-									headerText="Callstack"
-									headerButtonProps={{
-										'data-order': 2,
-										'data-title': 'Callstack',
-									}}
-								>
-									<CallstackWindow callStack={this.state.callStack} className={styles.splitterPanel} />
-								</PivotItem>
-							</Pivot>
-							
-							{/* <Callstack ref={this.callStack}/> */}
-						</Splitter>
-					</Splitter>
-				</div>
-			</ThemeProvider>
-		);
-	}
-
-	private leftPanel() {
-		return (
-			<Pivot aria-label="Basic Pivot Example">
-				<PivotItem
-					headerText="Main controls"
-					headerButtonProps={{
-						'data-order': 1,
-						'data-title': 'Main controls',
-					}}
-					itemIcon="FabricMDL2Icons"
-				>
-					<MainControls connected={this.state.connected} onReconnect={() => this.reconnect()} addressRef={this.serverAddressRef}/>
-				</PivotItem>
-				<PivotItem
-					headerText="Theme"
-					headerButtonProps={{
-						'data-order': 2,
-						'data-title': 'Theme',
-					}}
-				>
-					<ThemeSettings onToggledDarkTheme={(isDarkTheme) => this.setState({useDarkTheme: isDarkTheme})} defaultTheme='dark'/>
-				</PivotItem>
-			</Pivot>
-		);
-	}
+								<LogData.Provider value={{ entries: logEntries }}>
+									<LogWindow ref={logList} className={styles.splitterPanel} />
+								</LogData.Provider>
+							</PivotItem>
+							<PivotItem
+								headerText="Callstack"
+								headerButtonProps={{
+									'data-order': 2,
+									'data-title': 'Callstack',
+								}}
+							>
+								<CallstackWindow callStack={callStack} className={styles.splitterPanel} />
+							</PivotItem>
+						</Pivot>
+					</MainVerticalSplit>
+				</RootSplit>
+			</div>
+		</ThemeProvider>
+	);
 }
